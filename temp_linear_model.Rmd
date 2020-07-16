@@ -1,0 +1,144 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+
+```{r}
+file_name = "input2/input/input00.txt"
+
+ # use read table to read the file, or the the input from the stdin 
+temp <- read.table(file_name , sep="\t", header=TRUE, skip=1)
+temp
+
+```
+
+```{r}
+# let's create data frame snce
+df <- as.data.frame.matrix(temp) 
+
+# the first step is to convert the char column to numeric 
+
+# the missing values will be converted to nan
+
+df$numeric_min <- as.numeric(df$tmin) # presrves the places of missing values for later
+
+df$numeric_max <- as.numeric(df$tmax) # presrves the places of missing values for later
+
+
+# complete caases gives you the data frame without including the nans
+
+complete_df <- df[complete.cases(df),] # Keep only the complete rows
+
+# plot the result
+plot_1 <- complete_df %>%
+  select(numeric_min,numeric_max) %>%
+  ggplot(aes(x=numeric_min, y=,numeric_max)) + 
+  geom_point() 
+ 
+plot_1 
+
+```
+
+```{r}
+# let us try the linear regression since clearly the relationshiop between tmin and tmax seems to be linear
+
+# Objective : so our objective is to build a model the describes the relationship between two variables
+# How is this useful : if we have a model then we can fill the missing values (data within) or predict future, predict y for future values of x
+
+# First just let's iterate that this is a regression because here we are predicting a continuous variable and not a discrete one
+
+# second the relationship looks linear, so now our purpose is to build line
+
+# but what line, there are miollions of ways to build line here
+
+# for example we can build the following line :
+
+plot_1 + geom_abline(intercept = 5, slope = 1)
+
+```
+```{r}
+# or like this
+
+plot_1 + geom_abline(intercept = 5, slope = 1.5)
+```
+```{r}
+# which one of these lines are the best
+# Ok, first it seems that the best line should come come as close as possible from the points
+
+# Now let us break this down abit, if we wa t let's say to infer the max temp when the min value was 5, does it make sense to look at the all max values of temo at 5 and then take the mea
+
+x = 5
+plot_1 + geom_vline(xintercept = x)
+
+x <- complete_df%>%
+  filter(round(numeric_min) == 5)%>%
+  select(numeric_max)%>%
+ summarise_if(is.numeric, mean)
+
+y <- x$numeric_max
+y
+
+```
+```{r}
+plot_1 + geom_point(aes(x=5, y=11.61), colour="red", size =2)
+```
+
+```{r}
+# that seems to make sense, now our objective then is try to find the line that goes through the conditional mean of y 
+
+lm_model_max = lm(numeric_max ~ numeric_min, data = complete_df)
+lm_model_min = lm(numeric_min ~ numeric_max, data = complete_df)
+
+# ok that was simple, now how can get use results from the model
+
+model_max <- summary(lm_model_max) 
+intercept_max =model_max$coefficients[1] # get the intercept 
+slope_max = model_max$coefficients[2] # get the slope
+
+df$predicted_max <- intercept_max + slope_max*df$numeric_min # predict the new column
+
+# repeat the same thing for the min column as well
+
+model_min <- summary(lm_model_min)
+intercept_min =model_min$coefficients[1]
+slope_min = model_min$coefficients[2]
+
+df$predicted_min <- intercept_min + slope_min*df$numeric_max
+
+
+# if the value of a coulm is missing the fill the new column from the appropriate column
+df$all_mssings <- ifelse(grepl("Missing", df$tmax), df$predicted_max, "no")
+df$all_mssings <- ifelse(grepl("Missing", df$tmin), df$predicted_min, df$all_mssings)
+
+```
+
+```{r}
+# we have all these no, we can just remove them by keeping only the rows that have digits in them , and then we round the result
+final_df <- df[grep("[[:digit:]]", df$all_mssings), ]
+final_list <- round(as.numeric(final_df$all_mssings), 2)
+
+write.table(final_list,row.names = FALSE, col.names = FALSE)
+#cat(final_list,"\n")
+
+```
+
+```{r}
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
